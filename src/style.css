@@ -6,7 +6,7 @@
 
 html, body {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   overflow-x: hidden;
   font-family: 'Space Mono', monospace;
   background: #939da7;
@@ -83,6 +83,16 @@ html, body {
 #scroll-spacer {
   height: 500vh;
   pointer-events: none;
+  position: relative;
+  z-index: 0;
+}
+
+/* Hide scrollbar but keep scroll */
+html {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar {
+  display: none;
 }
 
 /* ─── UI Overlay ─── */
