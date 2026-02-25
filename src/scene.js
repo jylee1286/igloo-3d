@@ -65,31 +65,8 @@ export function createScene(container) {
   const hemiLight = new THREE.HemisphereLight(0x667788, 0x222233, 0.4);
   scene.add(hemiLight);
 
-  // ─── Interior glow — ONLY visible when blocks are displaced by hover ───
-  // NO always-on glow sphere. Light sits inside but only shows through gaps
-  // created by hover displacement.
-  const interiorGlow = new THREE.PointLight(0xeef4ff, 15, 6, 2);
-  interiorGlow.position.set(0, 1.0, 0);
-  scene.add(interiorGlow);
-
-  // Glow sphere — starts invisible, fades in near hovered area
-  const glowCoreMat = new THREE.MeshBasicMaterial({
-    color: 0xeef4ff,
-    transparent: true,
-    opacity: 0, // starts invisible
-  });
-  const glowCore = new THREE.Mesh(new THREE.SphereGeometry(1.8, 16, 12), glowCoreMat);
-  glowCore.position.y = 1.0;
-  scene.add(glowCore);
-
-  // Entrance spill — direction matches tunnel position (2.54, y, 1.59)
-  const entranceDir = new THREE.Vector3(2.54, 0, 1.59).normalize();
-  const entranceSpill = new THREE.SpotLight(0xeef4ff, 6, 8, Math.PI / 4, 0.5);
-  entranceSpill.position.set(0, 0.6, 0);
-  entranceSpill.target.position.copy(entranceDir.clone().multiplyScalar(5));
-  entranceSpill.target.position.y = 0.2;
-  scene.add(entranceSpill);
-  scene.add(entranceSpill.target);
+  // ─── NO interior glow sphere. NO always-on interior light. ───
+  // Glow comes ONLY from emissive on hovered blocks.
 
   // ─── Ground ───
   const groundGeo = new THREE.PlaneGeometry(120, 120, 250, 250);
@@ -305,26 +282,38 @@ export function createScene(container) {
         iglooGroup.position.set(-center.x, -box.min.y, -center.z);
 
         let blockIdx = 0;
-        const isTunnel = (name) => name && (name.includes('tunnel') || name.includes('entrance'));
+        let tunnelCenter = new THREE.Vector3();
+        
+        // First pass — find tunnel mesh center to know entrance direction
+        iglooGroup.traverse((child) => {
+          if (child.isMesh && child.name && child.name.includes('tunnel')) {
+            child.geometry.computeBoundingBox();
+            child.geometry.boundingBox.getCenter(tunnelCenter);
+          }
+        });
+        const entranceAngle = Math.atan2(tunnelCenter.z, tunnelCenter.x);
         
         iglooGroup.traverse((child) => {
           if (child.isMesh) {
+            // Hide solid tunnel — we replace with block arch
+            if (child.name && child.name.includes('tunnel')) {
+              child.visible = false;
+              return;
+            }
+
             const mat = createSnowBlockMaterial();
             child.material = mat;
             child.castShadow = true;
             child.receiveShadow = true;
 
-            if (isTunnel(child.name)) {
-              // Break tunnel into "fake blocks" by leaving as-is but marking it
-              child.userData.isTunnel = true;
-            }
+            // Gentle shrink for gaps
+            child.scale.multiplyScalar(0.94);
 
-            // Gentle shrink for gaps — preserve dome structure
-            child.scale.multiplyScalar(0.93);
-
-            // Very subtle irregularity (doesn't break shape)
-            child.scale.x *= 0.98 + Math.random() * 0.04;
-            child.scale.z *= 0.98 + Math.random() * 0.04;
+            // Compute center of this block from its geometry
+            child.geometry.computeBoundingBox();
+            const center = new THREE.Vector3();
+            child.geometry.boundingBox.getCenter(center);
+            child.userData.blockCenter = center.clone();
 
             child.userData.originalPosition = child.position.clone();
             child.userData.originalScale = child.scale.clone();
@@ -334,6 +323,50 @@ export function createScene(container) {
             iglooBlocks.push(child);
           }
         });
+
+        // Create tunnel arch from blocks — aligned to the dome entrance hole
+        const tunnelMat = createSnowBlockMaterial();
+        const tunnelDist = Math.sqrt(tunnelCenter.x ** 2 + tunnelCenter.z ** 2);
+        
+        // 3 rings of arch blocks, 5 blocks per ring (arch shape)
+        for (let ring = 0; ring < 4; ring++) {
+          const depth = ring * 0.45;
+          for (let i = 0; i < 6; i++) {
+            const archT = i / 5; // 0 to 1
+            const archAngle = (archT - 0.5) * Math.PI * 0.85; // -π/2.4 to π/2.4
+            const archR = 0.55;
+            
+            // Position along entrance direction
+            const cx = Math.cos(entranceAngle) * (tunnelDist - 0.3 + depth);
+            const cz = Math.sin(entranceAngle) * (tunnelDist - 0.3 + depth);
+            
+            // Offset perpendicular for arch curve
+            const perpX = -Math.sin(entranceAngle);
+            const perpZ = Math.cos(entranceAngle);
+            
+            const bx = cx + perpX * Math.cos(archAngle) * archR;
+            const bz = cz + perpZ * Math.cos(archAngle) * archR;
+            const by = tunnelCenter.y + Math.sin(archAngle) * archR;
+            
+            if (by < 0.05) continue;
+            
+            const geo = new THREE.BoxGeometry(0.35, 0.18, 0.40);
+            const mesh = new THREE.Mesh(geo, tunnelMat.clone());
+            mesh.position.set(bx, by, bz);
+            mesh.rotation.y = -entranceAngle + Math.PI / 2;
+            mesh.rotation.x = archAngle * 0.15;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.userData.blockCenter = new THREE.Vector3(bx, by, bz);
+            mesh.userData.originalPosition = mesh.position.clone();
+            mesh.userData.originalScale = mesh.scale.clone();
+            mesh.userData.originalRotation = mesh.rotation.clone();
+            mesh.userData.hoverAmount = 0;
+            mesh.userData.blockIndex = blockIdx++;
+            iglooBlocks.push(mesh);
+            iglooGroup.add(mesh);
+          }
+        }
 
         scene.add(iglooGroup);
         resolve();
@@ -391,8 +424,7 @@ export function createScene(container) {
     }
     snowPos.needsUpdate = true;
 
-    // Interior glow — base level is low, brightens when hovering
-    interiorGlow.intensity = 3 + Math.sin(elapsed * 1.8) * 0.5;
+    // No interior glow to manage
 
     // Hover
     if (iglooBlocks.length > 0) {
@@ -400,23 +432,15 @@ export function createScene(container) {
       const intersects = raycaster.intersectObjects(iglooBlocks, false);
       const hovered = intersects.length > 0 ? intersects[0].object : null;
 
-      // Dynamically control glow based on hover state
-      if (hovered) {
-        // Brighten interior only when hovering
-        interiorGlow.intensity = 20 + Math.sin(elapsed * 2) * 2;
-        glowCoreMat.opacity = Math.min(glowCoreMat.opacity + 0.03, 0.5);
-      } else {
-        interiorGlow.intensity = 3;
-        glowCoreMat.opacity = Math.max(glowCoreMat.opacity - 0.02, 0);
-      }
-
       for (const block of iglooBlocks) {
         let target = 0;
         if (block === hovered) {
           target = 1;
         } else if (hovered) {
-          const dist = block.userData.originalPosition.distanceTo(hovered.userData.originalPosition);
-          if (dist < 1.0) target = 0.35 * (1 - dist / 1.0);
+          const bc = block.userData.blockCenter || block.userData.originalPosition;
+          const hc = hovered.userData.blockCenter || hovered.userData.originalPosition;
+          const dist = bc.distanceTo(hc);
+          if (dist < 0.8) target = 0.3 * (1 - dist / 0.8);
         }
 
         block.userData.hoverAmount += (target - block.userData.hoverAmount) * 0.1;
@@ -424,7 +448,10 @@ export function createScene(container) {
 
         if (h > 0.005) {
           const orig = block.userData.originalPosition;
-          const dir = orig.clone().normalize();
+          // Use blockCenter for direction (since position may be 0,0,0)
+          const center = block.userData.blockCenter || orig;
+          const dir = center.clone().normalize();
+          if (dir.length() < 0.01) dir.set(0, 1, 0);
 
           // DRAMATIC outward push
           block.position.copy(orig).addScaledVector(dir, h * 1.5);
