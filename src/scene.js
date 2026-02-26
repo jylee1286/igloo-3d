@@ -35,9 +35,9 @@ export function createScene(container) {
   composer.addPass(new RenderPass(scene, camera));
 
   const bloom = new BloomEffect({
-    intensity: 1.4,
-    luminanceThreshold: 0.45,
-    luminanceSmoothing: 0.2,
+    intensity: 2.0,
+    luminanceThreshold: 0.35,
+    luminanceSmoothing: 0.25,
     mipmapBlur: true,
   });
   const vignette = new VignetteEffect({ offset: 0.35, darkness: 0.4 });
@@ -452,9 +452,8 @@ export function createScene(container) {
         // ─── Interior Glow (bright light inside dome, visible through cracks) ───
         const glowGeo = new THREE.SphereGeometry(1.8, 16, 16);
         const glowMat = new THREE.MeshBasicMaterial({
-          color: new THREE.Color(1.0, 1.0, 1.0),
-          transparent: true,
-          opacity: 0.85,
+          color: new THREE.Color(2.0, 2.0, 2.2), // HDR white - exceeds 1.0 for bloom
+          transparent: false,
           side: THREE.BackSide,
         });
         const glowSphere = new THREE.Mesh(glowGeo, glowMat);
@@ -462,9 +461,12 @@ export function createScene(container) {
         glowSphere.name = 'interiorGlow';
         iglooGroup.add(glowSphere);
 
-        // Strong interior point light for light bleed through cracks
-        const interiorLight = new THREE.PointLight(0xeef2ff, 5.0, 10);
+        // Multiple interior lights for strong light bleed through every crack
+        const interiorLight = new THREE.PointLight(0xeef2ff, 8.0, 12);
         interiorLight.position.set(0, 1.5, 0);
+        const interiorLight2 = new THREE.PointLight(0xeef2ff, 4.0, 8);
+        interiorLight2.position.set(0, 0.5, 0);
+        iglooGroup.add(interiorLight2);
         iglooGroup.add(interiorLight);
 
         scene.add(iglooGroup);
