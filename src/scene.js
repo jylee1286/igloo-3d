@@ -484,16 +484,17 @@ export function createScene(container) {
   }
   window.addEventListener('mousemove', onMouseMove, { passive: true });
 
-  // ─── Camera Orbit ───
-  const cameraOrbit = { angle: 0, radius: 12, height: 2.0, lookAtY: 0.8 };
-
+  // ─── Camera (fixed front view, no orbit) ───
+  // Front-facing view showing tunnel side, matching reference orientation
+  const camStart = { x: -8, y: 3.5, z: 6, lookY: 1.5 };
+  
   function updateCamera(scrollProgress) {
-    cameraOrbit.angle = scrollProgress * Math.PI * 2;
-    const h = cameraOrbit.height + Math.sin(scrollProgress * Math.PI) * 1.0;
-    camera.position.x = Math.sin(cameraOrbit.angle) * cameraOrbit.radius;
-    camera.position.z = Math.cos(cameraOrbit.angle) * cameraOrbit.radius;
-    camera.position.y = h;
-    camera.lookAt(0, cameraOrbit.lookAtY, 0);
+    // Camera stays at front angle, slight vertical shift on scroll
+    const p = scrollProgress;
+    camera.position.x = camStart.x + p * 2;
+    camera.position.y = camStart.y - p * 1.5;
+    camera.position.z = camStart.z - p * 2;
+    camera.lookAt(0, camStart.lookY - p * 0.5, 0);
   }
 
   // ─── Resize ───
@@ -531,7 +532,24 @@ export function createScene(container) {
     if (iglooBlocks.length > 0) {
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(iglooBlocks, false);
-      const rawHovered = intersects.length > 0 ? intersects[0].object : null;
+      // Only allow hovering front-facing blocks (facing camera, not back of dome)
+      let rawHovered = null;
+      for (const hit of intersects) {
+        const wc = hit.object.userData.worldCenter;
+        if (wc) {
+          // Check if block faces the camera (dot product of block direction with camera direction)
+          const blockDir = wc.clone().normalize();
+          const camDir = camera.position.clone().normalize();
+          const dot = blockDir.dot(camDir);
+          if (dot > 0.15) { // block is on camera-facing side
+            rawHovered = hit.object;
+            break;
+          }
+        } else {
+          rawHovered = hit.object;
+          break;
+        }
+      }
       
       // Sticky hover: only switch target if we get a consistent new target
       if (!animate._stickyHover) animate._stickyHover = { obj: null, frames: 0 };
