@@ -410,9 +410,9 @@ export function createScene(container) {
 
             // Gentle shrink for gaps (dome blocks only, not tunnel)
             if (!child.name || !child.name.includes('Tunnel')) {
-              child.scale.multiplyScalar(0.90);
+              child.scale.multiplyScalar(0.85);
             } else {
-              child.scale.multiplyScalar(0.93);
+              child.scale.multiplyScalar(0.88);
             }
 
             // Compute world-space center of this block
@@ -452,7 +452,7 @@ export function createScene(container) {
         // ─── Interior Glow (bright light inside dome, visible through cracks) ───
         const glowGeo = new THREE.SphereGeometry(2.5, 16, 16);
         const glowMat = new THREE.MeshBasicMaterial({
-          color: new THREE.Color(3.0, 3.0, 3.5), // HDR white - very bright for bloom through cracks
+          color: new THREE.Color(2.0, 2.0, 2.2), // HDR white for bloom through cracks
           transparent: false,
           side: THREE.BackSide,
         });
@@ -560,7 +560,7 @@ export function createScene(container) {
           const hc = hovered.userData.worldCenter || hovered.userData.blockCenter;
           const dist = bc.distanceTo(hc);
           // Localized radius with falloff — dramatic for close blocks
-          if (dist < 2.5) target = 0.7 * Math.pow(1 - dist / 2.5, 1.5);
+          if (dist < 3.5) target = 0.8 * Math.pow(1 - dist / 3.5, 1.3);
         }
 
         // Smooth easing
@@ -574,15 +574,15 @@ export function createScene(container) {
           const dir = wc ? new THREE.Vector3(wc.x, wc.y * 0.6, wc.z).normalize() : new THREE.Vector3(0, 1, 0);
           
           // DRAMATIC outward push — blocks clearly separate from dome
-          const pushDist = h * 0.45;
+          const pushDist = h * 0.7;
           block.position.copy(orig).addScaledVector(dir, pushDist);
-          block.position.y += h * 0.12;
+          block.position.y += h * 0.2;
 
           // Per-block random tilt (seeded — consistent per block)
           const seed = block.id * 1.37;
-          block.rotation.x = block.userData.originalRotation.x + h * 0.28 * Math.sin(seed + 0.5);
-          block.rotation.y = block.userData.originalRotation.y + h * 0.2 * Math.cos(seed * 0.7);
-          block.rotation.z = block.userData.originalRotation.z + h * 0.25 * Math.sin(seed * 1.3 + 1.0);
+          block.rotation.x = block.userData.originalRotation.x + h * 0.4 * Math.sin(seed + 0.5);
+          block.rotation.y = block.userData.originalRotation.y + h * 0.3 * Math.cos(seed * 0.7);
+          block.rotation.z = block.userData.originalRotation.z + h * 0.35 * Math.sin(seed * 1.3 + 1.0);
 
           // Slight scale
           const s = 1 + h * 0.04;
