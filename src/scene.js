@@ -388,18 +388,29 @@ export function createScene(container) {
             child.castShadow = true;
             child.receiveShadow = true;
 
-            // Shrink blocks from their center to create clean gaps
-            if (!child.name || !child.name.includes('Tunnel')) {
-              child.scale.multiplyScalar(0.82);
-            } else {
-              child.scale.multiplyScalar(0.85);
-            }
-
-            // Compute world-space center of this block
+            // Scale each block from its own geometric center to create clean gaps
             child.geometry.computeBoundingBox();
             const localCenter = new THREE.Vector3();
             child.geometry.boundingBox.getCenter(localCenter);
-            // Convert to world space for proper direction
+
+            const shrink = (!child.name || !child.name.includes('Tunnel')) ? 0.88 : 0.91;
+
+            // Shift geometry so center is at origin, then scale, then shift back
+            // This makes scale work from the block's own center
+            const pos = child.geometry.attributes.position;
+            for (let vi = 0; vi < pos.count; vi++) {
+              pos.setXYZ(vi,
+                (pos.getX(vi) - localCenter.x) * shrink + localCenter.x,
+                (pos.getY(vi) - localCenter.y) * shrink + localCenter.y,
+                (pos.getZ(vi) - localCenter.z) * shrink + localCenter.z
+              );
+            }
+            pos.needsUpdate = true;
+            child.geometry.computeBoundingBox();
+            child.geometry.computeVertexNormals();
+
+            // Recompute center after shrink
+            child.geometry.boundingBox.getCenter(localCenter);
             const worldCenter = localCenter.clone();
             child.localToWorld(worldCenter);
             child.userData.blockCenter = localCenter.clone();
