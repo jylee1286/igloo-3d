@@ -590,15 +590,16 @@ export function createScene(container) {
 
           // Emissive glow — brighter on directly hovered block
           block.material.emissive.setRGB(0.95, 0.97, 1.0);
-          block.material.emissiveIntensity = h * 1.0;
+          block.material.emissiveIntensity = 0.08 + h * 1.2;
 
           updateLabel(block, h > 0.4);
         } else {
           block.position.copy(block.userData.originalPosition);
           block.rotation.copy(block.userData.originalRotation);
           block.scale.copy(block.userData.originalScale);
-          block.material.emissive.setRGB(0, 0, 0);
-          block.material.emissiveIntensity = 0;
+          // Subtle base emissive for constant edge glow (matching reference)
+          block.material.emissive.setRGB(0.7, 0.75, 0.85);
+          block.material.emissiveIntensity = 0.08;
           updateLabel(block, false);
         }
       }
