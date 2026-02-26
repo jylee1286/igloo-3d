@@ -35,9 +35,9 @@ export function createScene(container) {
   composer.addPass(new RenderPass(scene, camera));
 
   const bloom = new BloomEffect({
-    intensity: 0.8,
-    luminanceThreshold: 0.6,
-    luminanceSmoothing: 0.15,
+    intensity: 1.4,
+    luminanceThreshold: 0.45,
+    luminanceSmoothing: 0.2,
     mipmapBlur: true,
   });
   const vignette = new VignetteEffect({ offset: 0.35, darkness: 0.4 });
@@ -46,7 +46,7 @@ export function createScene(container) {
   composer.addPass(new EffectPass(camera, bloom, vignette, toneMapping, smaa));
 
   // ─── Lighting (bright overcast arctic — matches igloo.inc) ───
-  const sunLight = new THREE.DirectionalLight(0xdde4ee, 2.5);
+  const sunLight = new THREE.DirectionalLight(0xdde4ee, 3.2);
   sunLight.position.set(5, 12, 3);
   sunLight.castShadow = true;
   sunLight.shadow.mapSize.set(2048, 2048);
@@ -60,7 +60,7 @@ export function createScene(container) {
   sunLight.shadow.bias = -0.001;
   scene.add(sunLight);
 
-  const fillLight = new THREE.DirectionalLight(0x99aabb, 0.8);
+  const fillLight = new THREE.DirectionalLight(0xb0c0d0, 1.2);
   fillLight.position.set(-4, 4, -6);
   scene.add(fillLight);
 
@@ -299,9 +299,9 @@ export function createScene(container) {
       normalMap: nor,
       normalScale: new THREE.Vector2(1.0, 1.0),
       roughnessMap: rough,
-      roughness: 0.82,
-      metalness: 0.0,
-      color: new THREE.Color(0xd0d5dd), // slight tint to brighten
+      roughness: 0.65,
+      metalness: 0.05,
+      color: new THREE.Color(0xe8ecf4), // light icy blue-white matching reference
       side: THREE.DoubleSide,
     });
   }
@@ -439,83 +439,25 @@ export function createScene(container) {
           }
         });
         console.log(debugInfo.join(' | '));
-        // Tunnel blocks come from the GLB model now — no generated tunnel
+        // Tunnel blocks come from the GLB model (Blender-built arch)
 
-        // ─── Generate tunnel arch to cover the dome hole ───
-        {
-          let b11 = null, b16 = null;
-          iglooGroup.traverse((child) => {
-            if (child.isMesh && child.name) {
-              if (child.name.includes('r0_b11')) b11 = child;
-              if (child.name.includes('r0_b16')) b16 = child;
-            }
-          });
+        // ─── Interior Glow (bright light inside dome, visible through cracks) ───
+        const glowGeo = new THREE.SphereGeometry(1.8, 16, 16);
+        const glowMat = new THREE.MeshBasicMaterial({
+          color: new THREE.Color(0.95, 0.97, 1.0),
+          transparent: true,
+          opacity: 0.6,
+          side: THREE.BackSide,
+        });
+        const glowSphere = new THREE.Mesh(glowGeo, glowMat);
+        glowSphere.position.set(0, 1.2, 0); // center of dome
+        glowSphere.name = 'interiorGlow';
+        iglooGroup.add(glowSphere);
 
-          if (b11 && b16) {
-            const getWBB = (m) => { const b = new THREE.Box3(); b.expandByObject(m); return b; };
-            const b11BB = getWBB(b11);
-            const b16BB = getWBB(b16);
-            const b11C = new THREE.Vector3(); b11BB.getCenter(b11C);
-            const b16C = new THREE.Vector3(); b16BB.getCenter(b16C);
-            let innerZ1, innerZ2;
-            if (b11C.z < b16C.z) { innerZ1 = b11BB.max.z; innerZ2 = b16BB.min.z; }
-            else { innerZ1 = b16BB.max.z; innerZ2 = b11BB.min.z; }
-            const holeWidth = Math.abs(innerZ2 - innerZ1);
-            const holeCenterZ = (innerZ1 + innerZ2) / 2;
-            const holeYTop = Math.max(b11BB.max.y, b16BB.max.y);
-            const groupBBox = new THREE.Box3(); groupBBox.expandByObject(iglooGroup);
-            const holeYBottom = groupBBox.min.y;
-            const holeHeight = holeYTop - holeYBottom;
-            const domeOuterX = Math.min(b11BB.min.x, b16BB.min.x);
-            console.log('Hole: w=' + holeWidth.toFixed(3) + ' h=' + holeHeight.toFixed(3) + ' cZ=' + holeCenterZ.toFixed(3) + ' dX=' + domeOuterX.toFixed(3));
-            const tunnelDepth = 1.5, tunnelRings = 4, tunnelSegments = 7, blockThickness = 0.2;
-            const archWidth = holeWidth * 1.15, archHeight = holeHeight * 1.05;
-            const halfW = archWidth / 2;
-            const iceMat = b11.material.clone();
-            for (let ring = 0; ring < tunnelRings; ring++) {
-              const rd = tunnelDepth / tunnelRings;
-              const xN = domeOuterX - ring * rd, xF = xN - rd;
-              for (let seg = 0; seg < tunnelSegments; seg++) {
-                const t0 = (seg / tunnelSegments) * Math.PI;
-                const t1 = ((seg + 1) / tunnelSegments) * Math.PI;
-                const subdivs = 4, positions = [], idx = [];
-                for (let s = 0; s <= subdivs; s++) {
-                  const t = t0 + (t1 - t0) * (s / subdivs);
-                  const iz = holeCenterZ + halfW * Math.cos(t);
-                  const iy = holeYBottom + archHeight * Math.sin(t);
-                  const nz = Math.cos(t) / halfW, ny = Math.sin(t) / archHeight;
-                  const nLen = Math.sqrt(nz * nz + ny * ny);
-                  const oz = iz + (nz / nLen) * blockThickness;
-                  const oy = iy + (ny / nLen) * blockThickness;
-                  positions.push(xN, iy, iz, xF, iy, iz, xN, oy, oz, xF, oy, oz);
-                  if (s < subdivs) {
-                    const base = s * 4, nb = (s + 1) * 4;
-                    idx.push(base, base+1, nb+1, base, nb+1, nb);
-                    idx.push(base+2, nb+2, nb+3, base+2, nb+3, base+3);
-                    idx.push(base, nb, nb+2, base, nb+2, base+2);
-                    idx.push(base+1, base+3, nb+3, base+1, nb+3, nb+1);
-                  }
-                }
-                idx.push(0, 2, 3, 0, 3, 1);
-                const last = subdivs * 4;
-                idx.push(last, last+1, last+3, last, last+3, last+2);
-                const geo = new THREE.BufferGeometry();
-                geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-                geo.setIndex(idx);
-                geo.computeVertexNormals();
-                const mesh = new THREE.Mesh(geo, iceMat);
-                mesh.name = 'TunnelBlock_' + ring + '_' + seg;
-                mesh.castShadow = true; mesh.receiveShadow = true;
-                mesh.scale.multiplyScalar(0.985);
-                mesh.userData.originalPosition = mesh.position.clone();
-                mesh.userData.originalScale = mesh.scale.clone();
-                mesh.userData.originalQuaternion = mesh.quaternion.clone();
-                iglooGroup.add(mesh);
-              }
-            }
-            console.log('Generated ' + (tunnelRings * tunnelSegments) + ' tunnel blocks');
-          }
-        }
+        // Also add a point light inside for realistic light bleed
+        const interiorLight = new THREE.PointLight(0xdde8ff, 3.0, 8);
+        interiorLight.position.set(0, 1.5, 0);
+        iglooGroup.add(interiorLight);
 
         scene.add(iglooGroup);
         resolve();
