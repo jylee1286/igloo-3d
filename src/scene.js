@@ -23,7 +23,7 @@ export function createScene(container) {
   const scene = new THREE.Scene();
   const bgColor = new THREE.Color(0xa8b0b8);
   scene.background = bgColor;
-  scene.fog = new THREE.FogExp2(bgColor, 0.012);
+  scene.fog = new THREE.FogExp2(bgColor, 0.015); // slightly denser fog for atmosphere
 
   // ─── Camera ───
   const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 200);
