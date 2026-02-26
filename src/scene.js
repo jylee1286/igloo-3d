@@ -570,6 +570,15 @@ export function createScene(container) {
       interiorLight.intensity += (interiorGlowTarget - interiorLight.intensity) * 0.06;
 
       for (const block of iglooBlocks) {
+        // ─── Idle breathing animation (always active, per-block phase) ───
+        const seed = block.id * 1.37;
+        const breathe = Math.sin(elapsed * 0.8 + seed * 2.1) * 0.5 + 0.5; // 0-1 slow wave
+        const idlePush = breathe * 0.04; // very subtle outward pulse
+        const idleTiltX = Math.sin(elapsed * 0.6 + seed * 1.5) * 0.015;
+        const idleTiltZ = Math.cos(elapsed * 0.5 + seed * 0.9) * 0.012;
+        const idleY = Math.sin(elapsed * 0.7 + seed * 1.8) * 0.008;
+
+        // ─── Hover target ───
         let target = 0;
         if (block === hovered) {
           target = 1;
@@ -577,45 +586,34 @@ export function createScene(container) {
           const bc = block.userData.worldCenter || block.userData.blockCenter;
           const hc = hovered.userData.worldCenter || hovered.userData.blockCenter;
           const dist = bc.distanceTo(hc);
-          // Localized radius with falloff — dramatic for close blocks
           if (dist < 3.5) target = 0.8 * Math.pow(1 - dist / 3.5, 1.3);
         }
 
-        // Smooth easing
+        // Smooth easing (hover persists while staying on same block)
         block.userData.hoverAmount += (target - block.userData.hoverAmount) * 0.07;
         const h = block.userData.hoverAmount;
 
+        const orig = block.userData.originalPosition;
+        const wc = block.userData.worldCenter;
+        const dir = wc ? new THREE.Vector3(wc.x, wc.y * 0.6, wc.z).normalize() : new THREE.Vector3(0, 1, 0);
+
+        // Combine idle + hover
+        const totalPush = idlePush + h * 0.7;
+        block.position.copy(orig).addScaledVector(dir, totalPush);
+        block.position.y += idleY + h * 0.2;
+
+        block.rotation.x = block.userData.originalRotation.x + idleTiltX + h * 0.4 * Math.sin(seed + 0.5);
+        block.rotation.y = block.userData.originalRotation.y + h * 0.3 * Math.cos(seed * 0.7);
+        block.rotation.z = block.userData.originalRotation.z + idleTiltZ + h * 0.35 * Math.sin(seed * 1.3 + 1.0);
+
+        const s = 1 + h * 0.04;
+        block.scale.copy(block.userData.originalScale).multiplyScalar(s);
+
         if (h > 0.005) {
-          const orig = block.userData.originalPosition;
-          const wc = block.userData.worldCenter;
-          // Direction: outward from dome center + slight upward
-          const dir = wc ? new THREE.Vector3(wc.x, wc.y * 0.6, wc.z).normalize() : new THREE.Vector3(0, 1, 0);
-          
-          // DRAMATIC outward push — blocks clearly separate from dome
-          const pushDist = h * 0.7;
-          block.position.copy(orig).addScaledVector(dir, pushDist);
-          block.position.y += h * 0.2;
-
-          // Per-block random tilt (seeded — consistent per block)
-          const seed = block.id * 1.37;
-          block.rotation.x = block.userData.originalRotation.x + h * 0.4 * Math.sin(seed + 0.5);
-          block.rotation.y = block.userData.originalRotation.y + h * 0.3 * Math.cos(seed * 0.7);
-          block.rotation.z = block.userData.originalRotation.z + h * 0.35 * Math.sin(seed * 1.3 + 1.0);
-
-          // Slight scale
-          const s = 1 + h * 0.04;
-          block.scale.copy(block.userData.originalScale).multiplyScalar(s);
-
-          // Emissive glow — brighter on directly hovered block
           block.material.emissive.setRGB(0.95, 0.97, 1.0);
           block.material.emissiveIntensity = 0.08 + h * 1.2;
-
           updateLabel(block, h > 0.4);
         } else {
-          block.position.copy(block.userData.originalPosition);
-          block.rotation.copy(block.userData.originalRotation);
-          block.scale.copy(block.userData.originalScale);
-          // Subtle base emissive for constant edge glow (matching reference)
           block.material.emissive.setRGB(0.7, 0.75, 0.85);
           block.material.emissiveIntensity = 0.08;
           updateLabel(block, false);
