@@ -68,7 +68,7 @@ export function createScene(container) {
   backLight.position.set(0, 3, -8);
   scene.add(backLight);
 
-  const hemiLight = new THREE.HemisphereLight(0x99aabb, 0x445566, 1.0);
+  const hemiLight = new THREE.HemisphereLight(0xb0c0d8, 0x556677, 1.4);
   scene.add(hemiLight);
 
   // ─── Ground (rocky snowy terrain like igloo.inc) ───
@@ -294,15 +294,23 @@ export function createScene(container) {
     rough.offset.set(offsetX, offsetY);
     rough.needsUpdate = true;
 
-    return new THREE.MeshStandardMaterial({
+    return new THREE.MeshPhysicalMaterial({
       map: diff,
       normalMap: nor,
-      normalScale: new THREE.Vector2(1.0, 1.0),
+      normalScale: new THREE.Vector2(0.7, 0.7),
       roughnessMap: rough,
-      roughness: 0.65,
-      metalness: 0.05,
-      color: new THREE.Color(0xe8ecf4), // light icy blue-white matching reference
+      roughness: 0.55,
+      metalness: 0.0,
+      color: new THREE.Color(0xeaeff6),
       side: THREE.DoubleSide,
+      // Subsurface/translucency for icy glow
+      transmission: 0.05,
+      thickness: 0.3,
+      sheen: 0.4,
+      sheenRoughness: 0.5,
+      sheenColor: new THREE.Color(0xd0e0ff),
+      clearcoat: 0.15,
+      clearcoatRoughness: 0.4,
     });
   }
 
@@ -444,18 +452,18 @@ export function createScene(container) {
         // ─── Interior Glow (bright light inside dome, visible through cracks) ───
         const glowGeo = new THREE.SphereGeometry(1.8, 16, 16);
         const glowMat = new THREE.MeshBasicMaterial({
-          color: new THREE.Color(0.95, 0.97, 1.0),
+          color: new THREE.Color(1.0, 1.0, 1.0),
           transparent: true,
-          opacity: 0.6,
+          opacity: 0.85,
           side: THREE.BackSide,
         });
         const glowSphere = new THREE.Mesh(glowGeo, glowMat);
-        glowSphere.position.set(0, 1.2, 0); // center of dome
+        glowSphere.position.set(0, 1.2, 0);
         glowSphere.name = 'interiorGlow';
         iglooGroup.add(glowSphere);
 
-        // Also add a point light inside for realistic light bleed
-        const interiorLight = new THREE.PointLight(0xdde8ff, 3.0, 8);
+        // Strong interior point light for light bleed through cracks
+        const interiorLight = new THREE.PointLight(0xeef2ff, 5.0, 10);
         interiorLight.position.set(0, 1.5, 0);
         iglooGroup.add(interiorLight);
 
