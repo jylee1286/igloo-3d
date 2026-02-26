@@ -410,9 +410,9 @@ export function createScene(container) {
 
             // Gentle shrink for gaps (dome blocks only, not tunnel)
             if (!child.name || !child.name.includes('Tunnel')) {
-              child.scale.multiplyScalar(0.94);
+              child.scale.multiplyScalar(0.90);
             } else {
-              child.scale.multiplyScalar(0.97);
+              child.scale.multiplyScalar(0.93);
             }
 
             // Compute world-space center of this block
@@ -450,9 +450,9 @@ export function createScene(container) {
         // Tunnel blocks come from the GLB model (Blender-built arch)
 
         // ─── Interior Glow (bright light inside dome, visible through cracks) ───
-        const glowGeo = new THREE.SphereGeometry(1.8, 16, 16);
+        const glowGeo = new THREE.SphereGeometry(2.5, 16, 16);
         const glowMat = new THREE.MeshBasicMaterial({
-          color: new THREE.Color(2.0, 2.0, 2.2), // HDR white - exceeds 1.0 for bloom
+          color: new THREE.Color(3.0, 3.0, 3.5), // HDR white - very bright for bloom through cracks
           transparent: false,
           side: THREE.BackSide,
         });
