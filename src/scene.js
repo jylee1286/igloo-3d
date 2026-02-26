@@ -388,11 +388,11 @@ export function createScene(container) {
             child.castShadow = true;
             child.receiveShadow = true;
 
-            // Gentle shrink for gaps (clean edges, no vertex noise)
+            // Shrink blocks from their center to create clean gaps
             if (!child.name || !child.name.includes('Tunnel')) {
-              child.scale.multiplyScalar(0.90);
+              child.scale.multiplyScalar(0.82);
             } else {
-              child.scale.multiplyScalar(0.93);
+              child.scale.multiplyScalar(0.85);
             }
 
             // Compute world-space center of this block
