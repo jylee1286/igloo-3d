@@ -349,10 +349,8 @@ export function createScene(container) {
   }
 
   // ─── Interior Glow Light (activates on hover like igloo.inc) ───
-  const interiorLight = new THREE.PointLight(0xeef4ff, 0, 8);
-  interiorLight.position.set(0, 1.2, 0);
-  scene.add(interiorLight);
-  let interiorGlowTarget = 0;
+  // Interior light removed — ambient glow on blocks only
+  // interiorGlowTarget removed (no interior light)
 
   // ─── Load Igloo Model ───
   let iglooBlocks = [];
@@ -440,25 +438,7 @@ export function createScene(container) {
         console.log(debugInfo.join(' | '));
         // Tunnel blocks come from the GLB model (Blender-built arch)
 
-        // ─── Interior Glow (bright light inside dome, visible through cracks) ───
-        const glowGeo = new THREE.SphereGeometry(2.5, 16, 16);
-        const glowMat = new THREE.MeshBasicMaterial({
-          color: new THREE.Color(2.0, 2.0, 2.2), // HDR white for bloom through cracks
-          transparent: false,
-          side: THREE.BackSide,
-        });
-        const glowSphere = new THREE.Mesh(glowGeo, glowMat);
-        glowSphere.position.set(0, 1.2, 0);
-        glowSphere.name = 'interiorGlow';
-        iglooGroup.add(glowSphere);
-
-        // Multiple interior lights for strong light bleed through every crack
-        const interiorLight = new THREE.PointLight(0xeef2ff, 8.0, 12);
-        interiorLight.position.set(0, 1.5, 0);
-        const interiorLight2 = new THREE.PointLight(0xeef2ff, 4.0, 8);
-        interiorLight2.position.set(0, 0.5, 0);
-        iglooGroup.add(interiorLight2);
-        iglooGroup.add(interiorLight);
+        // No interior light source — glow comes from block emissive only
 
         scene.add(iglooGroup);
         resolve();
@@ -556,9 +536,7 @@ export function createScene(container) {
       }
       const hovered = animate._lastHovered || null;
 
-      // Interior glow: ramp up when hovering
-      interiorGlowTarget = hovered ? 15 : 0;
-      interiorLight.intensity += (interiorGlowTarget - interiorLight.intensity) * 0.06;
+      // Block emissive glow handled per-block below
 
       for (const block of iglooBlocks) {
         // ─── Idle breathing animation (always active, per-block phase) ───
@@ -605,8 +583,8 @@ export function createScene(container) {
           block.material.emissiveIntensity = 0.08 + h * 1.2;
           updateLabel(block, h > 0.4);
         } else {
-          block.material.emissive.setRGB(0.7, 0.75, 0.85);
-          block.material.emissiveIntensity = 0.08;
+          block.material.emissive.setRGB(0.75, 0.8, 0.9);
+          block.material.emissiveIntensity = 0.15;
           updateLabel(block, false);
         }
       }
