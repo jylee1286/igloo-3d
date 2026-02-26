@@ -388,31 +388,11 @@ export function createScene(container) {
             child.castShadow = true;
             child.receiveShadow = true;
 
-            // Add vertex displacement for 3D surface detail (not flat blocks)
-            const geo = child.geometry;
-            if (geo && geo.attributes.position) {
-              const pos = geo.attributes.position;
-              const norm = geo.attributes.normal;
-              if (norm) {
-                for (let vi = 0; vi < pos.count; vi++) {
-                  const nx = norm.getX(vi), ny = norm.getY(vi), nz = norm.getZ(vi);
-                  const px = pos.getX(vi), py = pos.getY(vi), pz = pos.getZ(vi);
-                  // Displace along normal with noise
-                  const noise = (Math.sin(px * 15 + py * 12) * Math.cos(pz * 18 + px * 7) * 0.008
-                    + Math.sin(px * 35 + pz * 25) * 0.004
-                    + Math.sin(py * 40 + px * 30) * 0.003);
-                  pos.setXYZ(vi, px + nx * noise, py + ny * noise, pz + nz * noise);
-                }
-                pos.needsUpdate = true;
-                geo.computeVertexNormals();
-              }
-            }
-
-            // Gentle shrink for gaps (dome blocks only, not tunnel)
+            // Gentle shrink for gaps (clean edges, no vertex noise)
             if (!child.name || !child.name.includes('Tunnel')) {
-              child.scale.multiplyScalar(0.85);
+              child.scale.multiplyScalar(0.90);
             } else {
-              child.scale.multiplyScalar(0.88);
+              child.scale.multiplyScalar(0.93);
             }
 
             // Compute world-space center of this block
